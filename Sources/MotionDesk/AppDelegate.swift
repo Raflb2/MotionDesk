@@ -10,6 +10,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         buildMenu()
+        // First run: start automatically at login so the wallpaper is always there.
+        if UserDefaults.standard.object(forKey: "didFirstRun") == nil {
+            UserDefaults.standard.set(true, forKey: "didFirstRun")
+            Engine.shared.launchAtLogin = true
+        }
         Engine.shared.restore()
         desktop = DesktopController()
         buildWindow()

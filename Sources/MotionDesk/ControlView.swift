@@ -136,17 +136,21 @@ struct ControlView: View {
                 Text("Wallpaper mode").font(.subheadline.bold())
                 Picker("", selection: $e.mode) {
                     Text("Video wallpaper").tag(WallpaperMode.video)
-                    Text("Default static wallpaper").tag(WallpaperMode.standard)
+                    Text("My normal Mac wallpaper").tag(WallpaperMode.standard)
                 }
                 .labelsHidden()
             }
 
             Divider()
 
+            Toggle("Sharpen & enhance quality", isOn: $e.enhance).toggleStyle(.switch)
+            Text("Upscales low-resolution videos so they look cleaner on a big screen.")
+                .font(.caption).foregroundColor(.secondary)
+
             Toggle("Show on my desktop", isOn: $e.showOnDesktop).toggleStyle(.switch)
             Toggle("Open at login", isOn: $e.launchAtLogin).toggleStyle(.switch)
 
-            Text("Closing this window keeps the wallpaper running. Use the ▶ icon in the menu bar to reopen it or quit.")
+            Text("Your video is saved and comes back every time MotionDesk opens. Closing this window keeps the wallpaper running. Use the ▶ icon in the menu bar to reopen it or quit.")
                 .font(.caption).foregroundColor(.secondary)
         }
     }

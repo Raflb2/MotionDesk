@@ -3,12 +3,15 @@ import Combine
 
 /// Puts one borderless window per display just above the system wallpaper and
 /// below the desktop icons, so the video plays "behind" everything.
+/// In "normal wallpaper" mode the windows are removed, so your real wallpaper shows.
 final class DesktopController {
     private var windows: [NSWindow] = []
     private var bag = Set<AnyCancellable>()
 
     init() {
-        Engine.shared.$showOnDesktop
+        let e = Engine.shared
+        Publishers.CombineLatest3(e.$showOnDesktop, e.$mode, e.$videoURL)
+            .map { show, mode, url in show && mode == .video && url != nil }
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] on in self?.rebuild(enabled: on) }
@@ -16,7 +19,10 @@ final class DesktopController {
 
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.rebuild(enabled: Engine.shared.showOnDesktop) }
+            .sink { [weak self] _ in
+                let e = Engine.shared
+                self?.rebuild(enabled: e.showOnDesktop && e.mode == .video && e.videoURL != nil)
+            }
             .store(in: &bag)
     }
 
@@ -40,7 +46,7 @@ final class DesktopController {
             w.backgroundColor = .black
             w.hasShadow = false
             w.ignoresMouseEvents = true
-            w.contentView = WallpaperView(frame: NSRect(origin: .zero, size: screen.frame.size))
+            w.contentView = WallpaperView(frame: NSRect(origin: .zero, size: screen.frame.size), isDesktop: true)
             w.setFrame(screen.frame, display: true)
             w.orderFrontRegardless()
             windows.append(w)

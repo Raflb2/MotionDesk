@@ -2,7 +2,7 @@ import AVFoundation
 import AppKit
 import Combine
 
-/// Gradient used for the "Default static wallpaper" mode (and when no video is loaded).
+/// Gradient used when no video is loaded; can also show the user's real wallpaper image.
 final class StaticWallpaperLayer: CALayer {
     private let base = CAGradientLayer()
     private let glow = CAGradientLayer()
@@ -27,10 +27,17 @@ final class StaticWallpaperLayer: CALayer {
         glow.endPoint = CGPoint(x: 1.0, y: 0.75)
         addSublayer(base)
         addSublayer(glow)
+        contentsGravity = .resizeAspectFill
     }
 
     override init(layer: Any) { super.init(layer: layer) }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func setImage(_ image: CGImage?) {
+        contents = image
+        base.isHidden = (image != nil)
+        glow.isHidden = (image != nil)
+    }
 
     override func layoutSublayers() {
         super.layoutSublayers()
@@ -39,14 +46,18 @@ final class StaticWallpaperLayer: CALayer {
     }
 }
 
-/// Renders the shared player (with framing + rotation) or the static wallpaper.
+/// Renders the shared player (with framing + rotation).
 /// Used both on the desktop and in the Studio preview.
 final class WallpaperView: NSView {
     private let playerLayer = AVPlayerLayer()
     private let staticLayer = StaticWallpaperLayer()
     private var bag = Set<AnyCancellable>()
+    private let isDesktop: Bool
+    private var systemImage: CGImage? = nil
+    private var triedSystemImage = false
 
-    override init(frame frameRect: NSRect) {
+    init(frame frameRect: NSRect, isDesktop: Bool = false) {
+        self.isDesktop = isDesktop
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
@@ -68,6 +79,21 @@ final class WallpaperView: NSView {
         refresh()
     }
 
+    /// The user's real macOS wallpaper (used only for the preview in static mode).
+    private func loadSystemImage() -> CGImage? {
+        if triedSystemImage { return systemImage }
+        triedSystemImage = true
+        guard let screen = NSScreen.main,
+              let url = NSWorkspace.shared.desktopImageURL(for: screen) else { return nil }
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir),
+              !isDir.boolValue,
+              let img = NSImage(contentsOf: url) else { return nil }
+        var rect = CGRect(origin: .zero, size: img.size)
+        systemImage = img.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        return systemImage
+    }
+
     func refresh() {
         let e = Engine.shared
         CATransaction.begin()
@@ -77,6 +103,11 @@ final class WallpaperView: NSView {
         staticLayer.frame = b
         let showVideo = (e.mode == .video && e.videoURL != nil)
         staticLayer.isHidden = showVideo
+        if !showVideo && !isDesktop && e.mode == .standard {
+            staticLayer.setImage(loadSystemImage())
+        } else {
+            staticLayer.setImage(nil)
+        }
         playerLayer.isHidden = (e.mode != .video)
         playerLayer.videoGravity = (e.framing == .fill) ? .resizeAspectFill : .resizeAspect
 
