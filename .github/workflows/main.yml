@@ -1,0 +1,18 @@
+name: Build MotionDesk DMG
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build app and DMG
+        run: ./build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MotionDesk-dmg
+          path: build/MotionDesk.dmg
